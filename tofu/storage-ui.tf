@@ -58,6 +58,10 @@ resource "helm_release" "storage_ui" {
       imagePullSecrets = var.image_pull_secret_name != "" ? [
         { name = var.image_pull_secret_name }
       ] : []
+      env = [
+        { name = "AUTH_API_BASE_URL", value = var.auth_api_base_url },
+        { name = "CLUSTERKEEP_UI_URL", value = var.clusterkeep_ui_base_url },
+      ]
     })
   ]
 }

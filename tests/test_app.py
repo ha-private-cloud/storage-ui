@@ -2,6 +2,8 @@ import re
 from pathlib import Path
 
 import pytest
+import requests
+import responses as responses_lib
 
 from app import app
 
@@ -9,8 +11,21 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = REPO_ROOT / "templates"
 STATIC = REPO_ROOT / "static"
 
+AUTH_API_BASE_URL = "https://auth-dev.clusterkeep.dev.net"
+CLUSTERKEEP_UI_URL = "https://dev.clusterkeep.dev.net"
+
 @pytest.fixture
 def client():
+    """Authenticated by default -- most tests are about page content, not the auth gate itself."""
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        c.set_cookie("ck_sso", "test-session-token")
+        with responses_lib.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+            rsps.add(responses_lib.GET, f"{AUTH_API_BASE_URL}/session", json={}, status=200)
+            yield c
+
+@pytest.fixture
+def anonymous_client():
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c
@@ -144,3 +159,35 @@ def test_every_utility_used_by_a_template_is_in_the_build():
         f"utilities used in templates but absent from style.css: {missing}\n"
         "run `npm run build:css` and commit the result"
     )
+
+def test_no_session_cookie_redirects_to_clusterkeep_ui(anonymous_client):
+    response = anonymous_client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+
+def test_invalid_session_redirects_to_clusterkeep_ui(anonymous_client):
+    anonymous_client.set_cookie("ck_sso", "not-a-real-session")
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{AUTH_API_BASE_URL}/session", status=401)
+        response = anonymous_client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+
+def test_auth_api_unreachable_fails_closed(anonymous_client):
+    """A network blip must not accidentally let anyone in."""
+    anonymous_client.set_cookie("ck_sso", "some-token")
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(
+            responses_lib.GET,
+            f"{AUTH_API_BASE_URL}/session",
+            body=requests.exceptions.ConnectionError("unreachable"),
+        )
+        response = anonymous_client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+
+def test_healthz_is_reachable_without_a_session(anonymous_client):
+    assert anonymous_client.get("/healthz").status_code == 200
+
+def test_valid_session_reaches_the_page(client):
+    assert client.get("/").status_code == 200

@@ -44,3 +44,15 @@ variable "image_pull_secret_name" {
   type        = string
   default     = ""
 }
+
+variable "auth_api_base_url" {
+  description = "auth-api URL storage-ui checks the ck_sso session cookie against on every request."
+  type        = string
+  default     = "https://auth-dev.clusterkeep.dev.net"
+}
+
+variable "clusterkeep_ui_base_url" {
+  description = "clusterkeep-ui URL an unauthenticated visitor is redirected to."
+  type        = string
+  default     = "https://dev.clusterkeep.dev.net"
+}
