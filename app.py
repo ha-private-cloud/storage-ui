@@ -12,6 +12,9 @@ SESSION_COOKIE_NAME = "ck_sso"
 app.config["AUTH_API_BASE_URL"] = os.environ.get(
     "AUTH_API_BASE_URL", "https://auth-dev.clusterkeep.dev.net"
 ).strip()
+app.config["AUTH_API_INTERNAL_URL"] = os.environ.get(
+    "AUTH_API_INTERNAL_URL", "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
+).strip()
 app.config["CLUSTERKEEP_UI_URL"] = os.environ.get(
     "CLUSTERKEEP_UI_URL", "https://dev.clusterkeep.dev.net"
 ).strip()
@@ -63,7 +66,7 @@ def require_session():
 
     try:
         response = requests.get(
-            f"{app.config['AUTH_API_BASE_URL']}/session",
+            f"{app.config['AUTH_API_INTERNAL_URL']}/session",
             cookies={SESSION_COOKIE_NAME: token},
             timeout=3,
         )

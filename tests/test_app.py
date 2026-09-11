@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = REPO_ROOT / "templates"
 STATIC = REPO_ROOT / "static"
 
-AUTH_API_BASE_URL = "https://auth-dev.clusterkeep.dev.net"
+AUTH_API_INTERNAL_URL = "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
 CLUSTERKEEP_UI_URL = "https://dev.clusterkeep.dev.net"
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def client():
     with app.test_client() as c:
         c.set_cookie("ck_sso", "test-session-token")
         with responses_lib.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-            rsps.add(responses_lib.GET, f"{AUTH_API_BASE_URL}/session", json={}, status=200)
+            rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", json={}, status=200)
             yield c
 
 @pytest.fixture
@@ -168,7 +168,7 @@ def test_no_session_cookie_redirects_to_clusterkeep_ui(anonymous_client):
 def test_invalid_session_redirects_to_clusterkeep_ui(anonymous_client):
     anonymous_client.set_cookie("ck_sso", "not-a-real-session")
     with responses_lib.RequestsMock() as rsps:
-        rsps.add(responses_lib.GET, f"{AUTH_API_BASE_URL}/session", status=401)
+        rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", status=401)
         response = anonymous_client.get("/", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["Location"] == CLUSTERKEEP_UI_URL
@@ -179,7 +179,7 @@ def test_auth_api_unreachable_fails_closed(anonymous_client):
     with responses_lib.RequestsMock() as rsps:
         rsps.add(
             responses_lib.GET,
-            f"{AUTH_API_BASE_URL}/session",
+            f"{AUTH_API_INTERNAL_URL}/session",
             body=requests.exceptions.ConnectionError("unreachable"),
         )
         response = anonymous_client.get("/", follow_redirects=False)

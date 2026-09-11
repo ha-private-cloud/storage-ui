@@ -9,7 +9,8 @@ services:
       - "127.0.0.1:9081:5000"
     environment:
       APP_TITLE: ${APP_TITLE:-ClusterKeep}
-      AUTH_API_BASE_URL: http://auth-api:8000
+      AUTH_API_BASE_URL: http://localhost:9082
+      AUTH_API_INTERNAL_URL: http://auth-api:8000
       CLUSTERKEEP_UI_URL: http://localhost:9080
     depends_on:
       - auth-api
