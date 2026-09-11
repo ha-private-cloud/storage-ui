@@ -1,0 +1,26 @@
+services:
+  storage-ui:
+    container_name: storage-ui
+    build:
+      context: ./storage-ui
+      dockerfile: Dockerfile.dev
+    restart: on-failure
+    ports:
+      - "127.0.0.1:9080:5000"
+    environment:
+      APP_TITLE: ${APP_TITLE:-ClusterKeep}
+    volumes:
+      - ./storage-ui/app.py:/app/app.py:ro
+      - ./storage-ui/templates:/app/templates:ro
+      - ./storage-ui/static:/app/static:ro
+      - ./storage-ui/tests:/app/tests:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
