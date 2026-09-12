@@ -1,13 +1,15 @@
 import os
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 
 import requests
-from flask import Flask, redirect, render_template, request
+from flask import Flask, g, redirect, render_template, request
 
 app = Flask(__name__)
 
 APP_TITLE = os.environ.get("APP_TITLE", "ClusterKeep")
 SESSION_COOKIE_NAME = "ck_sso"
+ADMIN_GROUPS = ("cluster-admins", "admin")
 
 app.config["AUTH_API_BASE_URL"] = os.environ.get(
     "AUTH_API_BASE_URL", "https://auth-dev.clusterkeep.dev.net"
@@ -18,6 +20,7 @@ app.config["AUTH_API_INTERNAL_URL"] = os.environ.get(
 app.config["CLUSTERKEEP_UI_URL"] = os.environ.get(
     "CLUSTERKEEP_UI_URL", "https://dev.clusterkeep.dev.net"
 ).strip()
+app.config["ADMIN_UI_URL"] = os.environ.get("ADMIN_UI_URL", "").strip()
 
 CONTENT_SECURITY_POLICY = "; ".join(
     [
@@ -49,9 +52,20 @@ def set_security_headers(response):
     return response
 
 
+def logout_url():
+    query = urlencode({"post_logout_redirect_uri": app.config["CLUSTERKEEP_UI_URL"]})
+    return f"{app.config['AUTH_API_BASE_URL'].rstrip('/')}/logout?{query}"
+
+
 @app.context_processor
 def inject_globals():
-    return {"title": APP_TITLE, "year": datetime.now(timezone.utc).year}
+    return {
+        "title": APP_TITLE,
+        "year": datetime.now(timezone.utc).year,
+        "is_admin": getattr(g, "is_admin", False),
+        "admin_ui_url": app.config["ADMIN_UI_URL"],
+        "logout_url": logout_url(),
+    }
 
 
 @app.before_request
@@ -75,6 +89,8 @@ def require_session():
 
     if response.status_code != 200:
         return redirect(clusterkeep_ui_url)
+
+    g.is_admin = any(group in ADMIN_GROUPS for group in response.json().get("groups", []))
     return None
 
 
