@@ -188,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Folder cards that link to a sidebar section (delegated, since cards are re-rendered)
   mainContent.addEventListener('click', (e) => {
     const target = e.target.closest('[data-goto-section]');
     if (!target) return;
