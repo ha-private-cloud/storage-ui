@@ -11,7 +11,7 @@ SESSION_COOKIE_NAME = "ck_sso"
 ADMIN_GROUPS = ("cluster-admins", "admin")
 
 app.config["AUTH_API_INTERNAL_URL"] = os.environ.get(
-    "AUTH_API_INTERNAL_URL", "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
+    "AUTH_API_INTERNAL_URL", "http://auth-api.auth-dev-pub.svc.cluster.local"
 ).strip()
 app.config["CLUSTERKEEP_UI_URL"] = os.environ.get(
     "CLUSTERKEEP_UI_URL", "https://dev.clusterkeep.dev.net"

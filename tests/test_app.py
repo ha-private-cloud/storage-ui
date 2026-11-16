@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = REPO_ROOT / "templates"
 STATIC = REPO_ROOT / "static"
 
-AUTH_API_INTERNAL_URL = "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
+AUTH_API_INTERNAL_URL = "http://auth-api.auth-dev-pub.svc.cluster.local"
 CLUSTERKEEP_UI_URL = "https://dev.clusterkeep.dev.net"
 
 @pytest.fixture

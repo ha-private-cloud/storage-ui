@@ -49,7 +49,7 @@ variable "image_pull_secret_name" {
 variable "auth_api_internal_url" {
   description = "In-cluster Service URL for auth-api. Used for this backend's own server-to-server session check -- the public hostname above only resolves for browsers, not pods."
   type        = string
-  default     = "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
+  default     = "http://auth-api.auth-dev-pub.svc.cluster.local"
 }
 
 variable "clusterkeep_ui_base_url" {
