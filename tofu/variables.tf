@@ -45,11 +45,6 @@ variable "image_pull_secret_name" {
   default     = ""
 }
 
-variable "auth_api_base_url" {
-  description = "auth-api URL storage-ui checks the ck_sso session cookie against on every request."
-  type        = string
-  default     = "https://auth-dev.clusterkeep.dev.net"
-}
 
 variable "auth_api_internal_url" {
   description = "In-cluster Service URL for auth-api. Used for this backend's own server-to-server session check -- the public hostname above only resolves for browsers, not pods."
