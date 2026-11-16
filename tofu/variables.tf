@@ -49,7 +49,7 @@ variable "image_pull_secret_name" {
 variable "auth_api_internal_url" {
   description = "In-cluster Service URL for auth-api. Used for this backend's own server-to-server session check -- the public hostname above only resolves for browsers, not pods."
   type        = string
-  default     = "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
+  default     = "http://auth-api.auth-dev-pub.svc.cluster.local"
 }
 
 variable "clusterkeep_ui_base_url" {
@@ -62,4 +62,17 @@ variable "admin_ui_base_url" {
   description = "admin-ui URL the Admin sidebar link targets. Set to \"\" to hide the link regardless of group membership."
   type        = string
   default     = "https://admin-dev.clusterkeep.dev.net"
+}
+
+variable "storage_api_url" {
+  description = "In-cluster storage-api URL the file browser's /api routes are passed to. Blank leaves storage off."
+  type        = string
+  default     = ""
+}
+
+variable "storage_api_token" {
+  description = "Shared bearer token for storage-api. Must match storage-api's service_token."
+  type        = string
+  default     = ""
+  sensitive   = true
 }

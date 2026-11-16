@@ -8,12 +8,15 @@ services:
     ports:
       - "127.0.0.1:9081:5000"
     environment:
+      STORAGE_API_URL: http://storage-api:8000
+      STORAGE_API_TOKEN: dev-storage-token
       APP_TITLE: ${APP_TITLE:-ClusterKeep}
       AUTH_API_INTERNAL_URL: http://auth-api:8000
       CLUSTERKEEP_UI_URL: http://localhost:9080
       ADMIN_UI_URL: http://localhost:9083
     depends_on:
       - auth-api
+      - storage-api
     volumes:
       - ./storage-ui/app.py:/app/app.py:ro
       - ./storage-ui/templates:/app/templates:ro
