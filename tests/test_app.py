@@ -191,3 +191,26 @@ def test_healthz_is_reachable_without_a_session(anonymous_client):
 
 def test_valid_session_reaches_the_page(client):
     assert client.get("/").status_code == 200
+
+def test_admin_group_shows_the_admin_link(anonymous_client, monkeypatch):
+    monkeypatch.setitem(app.config, "ADMIN_UI_URL", "http://localhost:9083")
+    anonymous_client.set_cookie("ck_sso", "admin-token")
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", json={"groups": ["admin"]}, status=200)
+        body = anonymous_client.get("/").get_data(as_text=True)
+    assert "http://localhost:9083" in body
+
+def test_sign_out_link_points_to_auth_apis_logout(client):
+    body = client.get("/").get_data(as_text=True)
+    assert (
+        "https://auth-dev.clusterkeep.dev.net/logout"
+        "?post_logout_redirect_uri=https%3A%2F%2Fdev.clusterkeep.dev.net"
+    ) in body
+
+def test_regular_user_does_not_see_the_admin_link(anonymous_client, monkeypatch):
+    monkeypatch.setitem(app.config, "ADMIN_UI_URL", "http://localhost:9083")
+    anonymous_client.set_cookie("ck_sso", "regular-token")
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", json={"groups": []}, status=200)
+        body = anonymous_client.get("/").get_data(as_text=True)
+    assert "http://localhost:9083" not in body

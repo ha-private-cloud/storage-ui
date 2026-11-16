@@ -62,3 +62,9 @@ variable "clusterkeep_ui_base_url" {
   type        = string
   default     = "https://dev.clusterkeep.dev.net"
 }
+
+variable "admin_ui_base_url" {
+  description = "admin-ui URL the Admin sidebar link targets. Set to \"\" to hide the link regardless of group membership."
+  type        = string
+  default     = "https://admin-dev.clusterkeep.dev.net"
+}
