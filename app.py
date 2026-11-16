@@ -1,6 +1,5 @@
 import os
 from datetime import datetime, timezone
-from urllib.parse import urlencode
 
 import requests
 from flask import Flask, g, redirect, render_template, request
@@ -11,9 +10,6 @@ APP_TITLE = os.environ.get("APP_TITLE", "ClusterKeep")
 SESSION_COOKIE_NAME = "ck_sso"
 ADMIN_GROUPS = ("cluster-admins", "admin")
 
-app.config["AUTH_API_BASE_URL"] = os.environ.get(
-    "AUTH_API_BASE_URL", "https://auth-dev.clusterkeep.dev.net"
-).strip()
 app.config["AUTH_API_INTERNAL_URL"] = os.environ.get(
     "AUTH_API_INTERNAL_URL", "http://auth-api.clusterkeep-dev-priv.svc.cluster.local"
 ).strip()
@@ -58,8 +54,7 @@ def set_security_headers(response):
 
 
 def logout_url():
-    query = urlencode({"post_logout_redirect_uri": app.config["CLUSTERKEEP_UI_URL"]})
-    return f"{app.config['AUTH_API_BASE_URL'].rstrip('/')}/logout?{query}"
+    return f"{app.config['CLUSTERKEEP_UI_URL'].rstrip('/')}/logout"
 
 
 @app.context_processor
@@ -79,9 +74,9 @@ def require_session():
         return None
 
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    clusterkeep_ui_url = app.config["CLUSTERKEEP_UI_URL"]
+    sign_in_url = f"{app.config['CLUSTERKEEP_UI_URL'].rstrip('/')}/login"
     if not token:
-        return redirect(clusterkeep_ui_url)
+        return redirect(sign_in_url)
 
     try:
         response = requests.get(
@@ -90,10 +85,10 @@ def require_session():
             timeout=3,
         )
     except requests.RequestException:
-        return redirect(clusterkeep_ui_url)
+        return redirect(sign_in_url)
 
     if response.status_code != 200:
-        return redirect(clusterkeep_ui_url)
+        return redirect(sign_in_url)
 
     g.is_admin = any(group in ADMIN_GROUPS for group in response.json().get("groups", []))
     return None
