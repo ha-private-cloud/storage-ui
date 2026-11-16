@@ -38,6 +38,17 @@ locals {
   )
 }
 
+resource "kubernetes_secret" "storage_ui" {
+  metadata {
+    name      = "storage-ui-secrets"
+    namespace = data.kubernetes_namespace.storage_ui.metadata[0].name
+  }
+
+  data = {
+    STORAGE_API_TOKEN = var.storage_api_token
+  }
+}
+
 resource "helm_release" "storage_ui" {
   name      = "storage-ui"
   chart     = "${path.module}/../../charts/storage-ui"
@@ -62,6 +73,16 @@ resource "helm_release" "storage_ui" {
         { name = "AUTH_API_INTERNAL_URL", value = var.auth_api_internal_url },
         { name = "CLUSTERKEEP_UI_URL", value = var.clusterkeep_ui_base_url },
         { name = "ADMIN_UI_URL", value = var.admin_ui_base_url },
+        { name = "STORAGE_API_URL", value = var.storage_api_url },
+        {
+          name = "STORAGE_API_TOKEN"
+          valueFrom = {
+            secretKeyRef = {
+              name = kubernetes_secret.storage_ui.metadata[0].name
+              key  = "STORAGE_API_TOKEN"
+            }
+          }
+        },
       ]
     })
   ]

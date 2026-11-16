@@ -221,3 +221,95 @@ def test_unknown_path_shows_the_not_found_page(client):
     assert "Back to ClusterKeep" in body
     assert f'href="{CLUSTERKEEP_UI_URL}"' in body
     assert "Sign out" not in body
+
+
+STORAGE_URL = "http://storage-api.storage-dev-priv.svc.cluster.local"
+NODE = "0123456789abcdef0123456789abcdef"
+CHANGE = {"X-Requested-With": "storage-ui"}
+
+
+@pytest.fixture
+def storage_client(anonymous_client, monkeypatch):
+    monkeypatch.setitem(app.config, "STORAGE_API_URL", STORAGE_URL)
+    monkeypatch.setitem(app.config, "STORAGE_API_TOKEN", "test-storage-token")
+    anonymous_client.set_cookie("ck_sso", "test-session-token")
+    return anonymous_client
+
+
+def forwarded(extra=None):
+    headers = {"Authorization": "Bearer test-storage-token", "Cookie": "ck_sso=test-session-token"}
+    return [responses_lib.matchers.header_matcher({**headers, **(extra or {})})]
+
+
+def test_page_tells_the_script_where_to_send_people_to_log_in(client):
+    body = client.get("/").get_data(as_text=True)
+    assert 'data-login-url="https://dev.clusterkeep.dev.net/login"' in body
+
+
+def test_api_calls_are_passed_to_storage_api_with_the_service_token_and_session(storage_client):
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/usage", json={"used": 1, "quota": 2}, match=forwarded())
+        response = storage_client.get("/api/usage")
+    assert response.status_code == 200
+    assert response.get_json() == {"used": 1, "quota": 2}
+
+
+def test_query_strings_are_passed_through(storage_client):
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/search", json={"items": []},
+                 match=[responses_lib.matchers.query_param_matcher({"q": "holiday"})])
+        assert storage_client.get("/api/search?q=holiday").status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/api/vault/unlock", "/api/vault/recover", "/api/docs", f"/api/nodes/{NODE}/../x"])
+def test_only_listed_storage_routes_are_reachable(storage_client, path):
+    with responses_lib.RequestsMock():
+        assert storage_client.post(path, headers=CHANGE).status_code == 404
+
+
+def test_changes_need_the_same_site_header(storage_client):
+    with responses_lib.RequestsMock():
+        response = storage_client.delete(f"/api/nodes/{NODE}")
+    assert response.status_code == 403
+
+
+def test_upload_chunks_are_forwarded_byte_for_byte(storage_client):
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.PUT, f"{STORAGE_URL}/api/v1/uploads/{NODE}/chunks/3", status=204, match=forwarded())
+        response = storage_client.put(f"/api/uploads/{NODE}/chunks/3", data=b"\x00\x01binary", headers=CHANGE)
+        sent = rsps.calls[0].request.body
+    assert response.status_code == 204
+    assert sent == b"\x00\x01binary"
+
+
+def test_file_ranges_and_headers_come_back_for_seeking(storage_client):
+    upstream_headers = {"Content-Range": "bytes 0-3/10", "Accept-Ranges": "bytes",
+                        "Content-Disposition": "inline; filename*=UTF-8''clip.mp4",
+                        "Content-Security-Policy": "sandbox; default-src 'none'"}
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/files/{NODE}/content", status=206, body=b"abcd",
+                 content_type="video/mp4", headers=upstream_headers, match=forwarded({"Range": "bytes=0-3"}))
+        response = storage_client.get(f"/api/files/{NODE}/content", headers={"Range": "bytes=0-3"})
+    assert response.status_code == 206
+    assert response.data == b"abcd"
+    assert response.headers["Content-Range"] == "bytes 0-3/10"
+    assert response.headers["Content-Type"] == "video/mp4"
+    assert response.headers["Content-Security-Policy"] == "sandbox; default-src 'none'"
+
+
+def test_api_without_a_session_gets_json_not_a_redirect(anonymous_client):
+    response = anonymous_client.get("/api/usage")
+    assert response.status_code == 401
+    assert response.get_json() == {"detail": "not_signed_in"}
+
+
+def test_storage_not_configured_is_reported(anonymous_client):
+    anonymous_client.set_cookie("ck_sso", "test-session-token")
+    assert anonymous_client.get("/api/usage").status_code == 503
+
+
+def test_storage_unreachable_is_reported(storage_client):
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/usage", body=requests.exceptions.ConnectionError("down"))
+        response = storage_client.get("/api/usage")
+    assert response.status_code == 502

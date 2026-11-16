@@ -63,3 +63,16 @@ variable "admin_ui_base_url" {
   type        = string
   default     = "https://admin-dev.clusterkeep.dev.net"
 }
+
+variable "storage_api_url" {
+  description = "In-cluster storage-api URL the file browser's /api routes are passed to. Blank leaves storage off."
+  type        = string
+  default     = ""
+}
+
+variable "storage_api_token" {
+  description = "Shared bearer token for storage-api. Must match storage-api's service_token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
