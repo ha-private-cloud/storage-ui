@@ -45,6 +45,11 @@ SECURITY_HEADERS = {
 }
 
 
+@app.errorhandler(404)
+def not_found(_error):
+    return render_template("404.html", home_url=app.config["CLUSTERKEEP_UI_URL"]), 404
+
+
 @app.after_request
 def set_security_headers(response):
     for header, value in SECURITY_HEADERS.items():
