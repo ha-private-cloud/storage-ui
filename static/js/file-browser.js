@@ -17,6 +17,20 @@
 
   const SECTIONS = { photos: "Photos", videos: "Videos", music: "Music", documents: "Documents" };
   const MAX_CHUNK_ATTEMPTS = 4;
+  const NODE_TYPE = "application/x-clusterkeep-node";
+  const DROP_HIGHLIGHT = ["ring-2", "ring-amber-600"];
+  const SECTION_ACCEPT = {
+    photos: "image/*,.heic,.heif,.dng",
+    videos: "video/*,.mkv",
+    music: "audio/*,.flac,.opus",
+    documents: ".pdf,.txt,.md,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,.csv,.ppt,.pptx,.odp,.pages,.numbers,.key,.epub,.json,.xml",
+  };
+  const SECTION_RULES = {
+    photos: "Photos only accepts images.",
+    videos: "Videos only accepts video files.",
+    music: "Music only accepts audio files.",
+    documents: "Documents only accepts documents, such as PDFs, text and Office files.",
+  };
   const MESSAGES = {
     name_taken: "Something with that name is already here.",
     invalid_name: "That name can't be used.",
@@ -50,6 +64,7 @@
   };
 
   let currentFolderId = null;
+  let currentSection = null;
   let uploadTarget = null;
   let uploadQueue = Promise.resolve();
 
@@ -106,11 +121,18 @@
   }
 
   class ApiError extends Error {
-    constructor(status, detail) {
+    constructor(status, data) {
+      const detail = data && data.detail;
       super(detail || `Request failed (${status})`);
       this.status = status;
       this.detail = detail;
+      this.section = data && data.section;
     }
+  }
+
+  function errorMessage(err, fallback) {
+    if (err instanceof ApiError && err.detail === "wrong_type") return SECTION_RULES[err.section] || fallback;
+    return (err instanceof ApiError && MESSAGES[err.detail]) || fallback;
   }
 
   async function api(path, options) {
@@ -131,7 +153,7 @@
     } catch (err) {
       data = null;
     }
-    if (!response.ok) throw new ApiError(response.status, data && data.detail);
+    if (!response.ok) throw new ApiError(response.status, data);
     return data;
   }
 
@@ -158,7 +180,7 @@
       showLocked();
       return;
     }
-    say((err instanceof ApiError && MESSAGES[err.detail]) || "Something went wrong. Try again.");
+    say(errorMessage(err, "Something went wrong. Try again."));
   }
 
   async function refreshUsage() {
@@ -225,19 +247,66 @@
     }, input);
   }
 
+  function hasType(event, type) {
+    return Boolean(event.dataTransfer) && Array.from(event.dataTransfer.types).includes(type);
+  }
+
+  function isItemDrag(event) {
+    return hasType(event, NODE_TYPE);
+  }
+
+  function isFileDrag(event) {
+    return hasType(event, "Files") && !isItemDrag(event);
+  }
+
+  async function moveTo(nodeId, parentId) {
+    try {
+      await api(`nodes/${nodeId}`, { method: "PATCH", json: { parent_id: parentId } });
+      say("Moved.");
+      render();
+    } catch (err) {
+      handleError(err);
+    }
+  }
+
+  function dropTarget(element, onDrop) {
+    element.addEventListener("dragover", (event) => {
+      if (!isItemDrag(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      element.classList.add(...DROP_HIGHLIGHT);
+    });
+    element.addEventListener("dragleave", () => element.classList.remove(...DROP_HIGHLIGHT));
+    element.addEventListener("drop", (event) => {
+      if (!isItemDrag(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      element.classList.remove(...DROP_HIGHLIGHT);
+      const nodeId = event.dataTransfer.getData(NODE_TYPE);
+      if (nodeId) onDrop(nodeId);
+    });
+    return element;
+  }
+
+  function moveDropTarget(element, folderId) {
+    return dropTarget(element, (nodeId) => {
+      if (nodeId !== folderId) moveTo(nodeId, folderId);
+    });
+  }
+
   function header(title, crumbs, options) {
     const opts = options || {};
     const trail = crumbs && crumbs.length
       ? el("nav", { class: "flex flex-wrap items-center gap-1 text-sm text-stone-500 dark:text-stone-400 mb-1", "aria-label": "Folder path" },
-          el("a", { href: "#all", class: "hover:text-amber-700", text: "My storage" }),
-          crumbs.slice(0, -1).map((crumb) => [" / ", el("a", { href: `#folder/${crumb.id}`, class: "hover:text-amber-700", text: crumb.name })]),
+          moveDropTarget(el("a", { href: "#all", class: "rounded hover:text-amber-700", text: "My storage" }), null),
+          crumbs.slice(0, -1).map((crumb) => [" / ", moveDropTarget(el("a", { href: `#folder/${crumb.id}`, class: "rounded hover:text-amber-700", text: crumb.name }), crumb.id)]),
         )
       : null;
     const actions = el("div", { class: "flex flex-wrap items-center gap-3" }, searchForm(opts.query));
     if (opts.canAdd) {
       actions.append(
         el("button", { type: "button", class: SECONDARY, onclick: newFolder }, icon("newFolder", "w-4 h-4"), "New folder"),
-        el("button", { type: "button", class: PRIMARY, onclick: () => fileInput.click() }, icon("upload", "w-4 h-4"), "Upload"),
+        el("button", { type: "button", class: PRIMARY, onclick: openUploadDialog }, icon("upload", "w-4 h-4"), "Upload"),
       );
     }
     return el("div", { class: "flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6" },
@@ -268,7 +337,7 @@
     const kind = kindOf(item);
     const open = () => (kind === "folder" ? go(folderHash(item)) : openFile(item));
     const preview = item.has_thumbnail
-      ? el("img", { src: `/api/files/${item.id}/thumbnail`, alt: "", loading: "lazy", class: "absolute inset-0 w-full h-full object-cover" })
+      ? el("img", { src: `/api/files/${item.id}/thumbnail`, alt: "", loading: "lazy", draggable: "false", class: "absolute inset-0 w-full h-full object-cover" })
       : el("div", { class: "absolute inset-0 flex items-center justify-center" },
           icon(kind, kind === "folder" ? "w-14 h-14 text-amber-500" : "w-12 h-12 text-stone-300 dark:text-stone-700"));
 
@@ -301,6 +370,15 @@
       },
     }, preview, actions);
 
+    if (!opts.trash && !item.section) {
+      tile.draggable = true;
+      tile.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData(NODE_TYPE, item.id);
+        event.dataTransfer.effectAllowed = "move";
+      });
+    }
+    if (!opts.trash && kind === "folder") moveDropTarget(tile, item.id);
+
     const detail = kind === "folder" ? "Folder" : formatBytes(item.size);
     return el("div", { class: "flex flex-col gap-1 min-w-0" },
       tile,
@@ -325,6 +403,7 @@
         ? await api(`sections/${state.section}`)
         : await api(state.id ? `folders?parent_id=${encodeURIComponent(state.id)}` : "folders");
       currentFolderId = data.folder.id;
+      currentSection = data.folder.section;
       const crumbs = state.view === "section" ? null : data.folder.path;
       main.replaceChildren(
         header(data.folder.name, crumbs, { canAdd: true }),
@@ -341,6 +420,7 @@
 
   async function renderTrash() {
     currentFolderId = null;
+    currentSection = null;
     const data = await api("trash");
     main.replaceChildren(
       header("Bin", null, {}),
@@ -351,6 +431,7 @@
 
   async function renderSearch(query) {
     currentFolderId = null;
+    currentSection = null;
     const data = await api(`search?q=${encodeURIComponent(query)}`);
     main.replaceChildren(
       header(`Results for “${query}”`, null, { query }),
@@ -530,10 +611,39 @@
       if (currentFolderId === parentId) render();
       refreshUsage();
     } catch (err) {
-      row.done((err instanceof ApiError && MESSAGES[err.detail]) || "Upload failed");
+      row.done(errorMessage(err, "Upload failed"));
       if (upload) api(`uploads/${upload.id}`, { method: "DELETE" }).catch(() => {});
       if (err instanceof ApiError && (err.status === 401 || err.status === 423)) showLocked();
     }
+  }
+
+  function openUploadDialog() {
+    uploadTarget = currentFolderId;
+    fileInput.accept = SECTION_ACCEPT[currentSection] || "";
+    const zone = el("div", {
+      class: "w-full flex flex-col items-center justify-center gap-4 px-6 py-12 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 transition-colors",
+      ondragover: (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        zone.classList.add("border-amber-600", "bg-amber-50", "dark:bg-stone-900");
+      },
+      ondragleave: () => zone.classList.remove("border-amber-600", "bg-amber-50", "dark:bg-stone-900"),
+      ondrop: (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const files = Array.from(event.dataTransfer.files);
+        if (!files.length) return;
+        viewer.close();
+        queueUploads(files);
+      },
+    },
+      icon("upload", "w-10 h-10 text-stone-400"),
+      el("p", { class: "text-sm", text: "Drop files here" }),
+      el("button", { type: "button", class: SECONDARY, onclick: () => fileInput.click() }, "Choose files"),
+    );
+    showDialog("Upload files", el("div", { class: "w-full max-w-lg" }, zone));
   }
 
   function queueUploads(files) {
@@ -544,17 +654,48 @@
   }
 
   fileInput.addEventListener("change", () => {
-    uploadTarget = currentFolderId;
-    queueUploads(Array.from(fileInput.files));
+    const files = Array.from(fileInput.files);
     fileInput.value = "";
+    if (!files.length) return;
+    if (viewer.open) viewer.close();
+    queueUploads(files);
   });
 
+  for (const link of navLinks) {
+    const section = link.dataset.section;
+    dropTarget(link, async (nodeId) => {
+      if (section === "trash") {
+        try {
+          await api(`nodes/${nodeId}`, { method: "DELETE" });
+          say("Moved to the bin.");
+          render();
+        } catch (err) {
+          handleError(err);
+        }
+        return;
+      }
+      if (section === "all") {
+        moveTo(nodeId, null);
+        return;
+      }
+      try {
+        moveTo(nodeId, (await api(`sections/${section}`)).folder.id);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+  }
+
+  function acceptsUploads() {
+    const view = route().view;
+    return view === "folder" || view === "section";
+  }
+
   main.addEventListener("dragover", (event) => {
-    if (route().view === "folder" || route().view === "section") event.preventDefault();
+    if (isFileDrag(event) && acceptsUploads()) event.preventDefault();
   });
   main.addEventListener("drop", (event) => {
-    const view = route().view;
-    if (view !== "folder" && view !== "section") return;
+    if (!isFileDrag(event) || !acceptsUploads()) return;
     event.preventDefault();
     uploadTarget = currentFolderId;
     queueUploads(Array.from(event.dataTransfer.files));
