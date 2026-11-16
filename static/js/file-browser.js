@@ -46,6 +46,8 @@
   const BUTTON = "inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700";
   const SECONDARY = `${BUTTON} text-stone-700 dark:text-stone-200 bg-stone-100 hover:bg-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 border border-stone-300 dark:border-stone-700`;
   const PRIMARY = `${BUTTON} text-white bg-amber-700 hover:bg-amber-800 shadow-sm`;
+  const DANGER = `${BUTTON} text-white bg-red-700 hover:bg-red-800 shadow-sm`;
+  const FIELD = "w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700";
   const ICON_BUTTON = "p-1.5 rounded-md bg-white/90 dark:bg-stone-900/90 text-stone-700 dark:text-stone-200 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700";
 
   const ICON_PATHS = {
@@ -59,6 +61,7 @@
     download: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
     rename: "M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.5H9V13z",
     move: "M13 7l5 5m0 0l-5 5m5-5H6",
+    back: "M10 19l-7-7m0 0l7-7m-7 7h18",
     bin: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
     restore: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   };
@@ -77,7 +80,7 @@
       else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
       else node.setAttribute(key, value === true ? "" : value);
     }
-    for (const child of children.flat()) {
+    for (const child of children.flat(Infinity)) {
       if (child === null || child === undefined || child === false) continue;
       node.append(child instanceof Node ? child : document.createTextNode(String(child)));
     }
@@ -224,7 +227,11 @@
   }
 
   function folderHash(item) {
-    return item.section ? item.section : `folder/${item.id}`;
+    return `folder/${item.id}`;
+  }
+
+  function parentHash(path) {
+    return path.length > 1 ? `folder/${path[path.length - 2].id}` : "all";
   }
 
   function searchForm(initial) {
@@ -294,6 +301,18 @@
     });
   }
 
+  function backButton(path) {
+    const button = el("button", {
+      type: "button",
+      class: "shrink-0 p-2 rounded-lg text-stone-600 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700",
+      "aria-label": "Back",
+      title: "Back",
+      onclick: () => go(parentHash(path)),
+    }, icon("back", "w-5 h-5"));
+    const parentId = path.length > 1 ? path[path.length - 2].id : null;
+    return moveDropTarget(button, parentId);
+  }
+
   function header(title, crumbs, options) {
     const opts = options || {};
     const trail = crumbs && crumbs.length
@@ -310,7 +329,10 @@
       );
     }
     return el("div", { class: "flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6" },
-      el("div", { class: "min-w-0" }, trail, el("h2", { class: "text-2xl font-display font-semibold text-stone-900 dark:text-stone-50 truncate", text: title })),
+      el("div", { class: "min-w-0" }, trail,
+        el("div", { class: "flex items-center gap-3 min-w-0" },
+          opts.back ? backButton(opts.back) : null,
+          el("h2", { class: "text-2xl font-display font-semibold text-stone-900 dark:text-stone-50 truncate", text: title }))),
       actions,
     );
   }
@@ -406,7 +428,7 @@
       currentSection = data.folder.section;
       const crumbs = state.view === "section" ? null : data.folder.path;
       main.replaceChildren(
-        header(data.folder.name, crumbs, { canAdd: true }),
+        header(data.folder.name, crumbs, { canAdd: true, back: crumbs && crumbs.length ? crumbs : null }),
         data.items.length ? grid(data.items) : emptyState("Nothing here yet. Upload files or drop them on this page."),
       );
     } catch (err) {
@@ -439,26 +461,76 @@
     );
   }
 
-  async function newFolder() {
-    const name = window.prompt("Folder name");
-    if (!name || !name.trim()) return;
-    try {
-      await api("folders", { method: "POST", json: { parent_id: currentFolderId, name: name.trim() } });
-      render();
-    } catch (err) {
-      handleError(err);
+  function actionDialog({ title, message, fieldLabel, fieldValue, submitLabel, submitClass, onSubmit }) {
+    const error = el("p", { class: "hidden text-sm text-red-700 dark:text-red-300", role: "alert" });
+    const input = fieldLabel
+      ? el("input", { type: "text", name: "name", value: fieldValue || "", required: true, maxlength: "255", autocomplete: "off", class: FIELD })
+      : null;
+    const submit = el("button", { type: "submit", class: submitClass || PRIMARY }, submitLabel);
+    const form = el("form", {
+      class: "w-full flex flex-col gap-4",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        const value = input ? input.value.trim() : null;
+        if (input && !value) return;
+        submit.disabled = true;
+        error.classList.add("hidden");
+        try {
+          await onSubmit(value);
+          viewer.close();
+        } catch (err) {
+          submit.disabled = false;
+          if (err instanceof ApiError && (err.status === 401 || err.status === 423)) {
+            viewer.close();
+            showLocked();
+            return;
+          }
+          error.textContent = errorMessage(err, "Something went wrong. Try again.");
+          error.classList.remove("hidden");
+          if (input) input.focus();
+        }
+      },
+    },
+      message ? el("p", { class: "text-stone-600 dark:text-stone-300", text: message }) : null,
+      input ? el("label", { class: "flex flex-col gap-2 text-sm font-medium" }, fieldLabel, input) : null,
+      error,
+      el("div", { class: "flex justify-end gap-3" },
+        el("button", { type: "button", class: SECONDARY, onclick: () => viewer.close() }, "Cancel"),
+        submit));
+    showDialog(title, form, "small");
+    if (input) {
+      input.focus();
+      const dot = input.value.lastIndexOf(".");
+      input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+    } else {
+      submit.focus();
     }
   }
 
-  async function rename(item) {
-    const name = window.prompt("New name", item.name);
-    if (!name || !name.trim() || name.trim() === item.name) return;
-    try {
-      await api(`nodes/${item.id}`, { method: "PATCH", json: { name: name.trim() } });
-      render();
-    } catch (err) {
-      handleError(err);
-    }
+  function newFolder() {
+    actionDialog({
+      title: "New folder",
+      fieldLabel: "Folder name",
+      submitLabel: "Create folder",
+      onSubmit: async (name) => {
+        await api("folders", { method: "POST", json: { parent_id: currentFolderId, name } });
+        render();
+      },
+    });
+  }
+
+  function rename(item) {
+    actionDialog({
+      title: `Rename “${item.name}”`,
+      fieldLabel: "New name",
+      fieldValue: item.name,
+      submitLabel: "Rename",
+      onSubmit: async (name) => {
+        if (name === item.name) return;
+        await api(`nodes/${item.id}`, { method: "PATCH", json: { name } });
+        render();
+      },
+    });
   }
 
   async function move(item) {
@@ -492,18 +564,20 @@
         }
       },
     }, "Move here");
-    showDialog(`Move “${item.name}”`, el("div", { class: "w-full max-w-md flex flex-col gap-4" }, select, confirm));
+    showDialog(`Move “${item.name}”`, el("div", { class: "w-full flex flex-col gap-4" }, select, confirm), "small");
   }
 
-  async function binItem(item) {
-    if (!window.confirm(`Move “${item.name}” to the bin?`)) return;
-    try {
-      await api(`nodes/${item.id}`, { method: "DELETE" });
-      say("Moved to the bin.");
-      render();
-    } catch (err) {
-      handleError(err);
-    }
+  function binItem(item) {
+    actionDialog({
+      title: "Move to bin",
+      message: `Move “${item.name}” to the bin? You can restore it from the bin for 30 days.`,
+      submitLabel: "Move to bin",
+      onSubmit: async () => {
+        await api(`nodes/${item.id}`, { method: "DELETE" });
+        say("Moved to the bin.");
+        render();
+      },
+    });
   }
 
   async function restore(item) {
@@ -516,15 +590,19 @@
     }
   }
 
-  async function deleteForever(item) {
-    if (!window.confirm(`Delete “${item.name}” for good? This can't be undone.`)) return;
-    try {
-      await api(`trash/${item.id}`, { method: "DELETE" });
-      render();
-      refreshUsage();
-    } catch (err) {
-      handleError(err);
-    }
+  function deleteForever(item) {
+    actionDialog({
+      title: "Delete forever",
+      message: `Delete “${item.name}” for good? This can't be undone.`,
+      submitLabel: "Delete forever",
+      submitClass: DANGER,
+      onSubmit: async () => {
+        await api(`trash/${item.id}`, { method: "DELETE" });
+        say("Deleted.");
+        render();
+        refreshUsage();
+      },
+    });
   }
 
   function download(item) {
@@ -534,7 +612,9 @@
     link.remove();
   }
 
-  function showDialog(title, content) {
+  function showDialog(title, content, size) {
+    viewer.classList.toggle("max-w-md", size === "small");
+    viewer.classList.toggle("max-w-5xl", size !== "small");
     viewerTitle.textContent = title;
     viewerBody.replaceChildren(content);
     viewer.showModal();
@@ -643,7 +723,7 @@
       el("p", { class: "text-sm", text: "Drop files here" }),
       el("button", { type: "button", class: SECONDARY, onclick: () => fileInput.click() }, "Choose files"),
     );
-    showDialog("Upload files", el("div", { class: "w-full max-w-lg" }, zone));
+    showDialog("Upload files", el("div", { class: "w-full" }, zone), "small");
   }
 
   function queueUploads(files) {
