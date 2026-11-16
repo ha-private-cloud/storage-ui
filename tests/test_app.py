@@ -214,3 +214,13 @@ def test_regular_user_does_not_see_the_admin_link(anonymous_client, monkeypatch)
         rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", json={"groups": []}, status=200)
         body = anonymous_client.get("/").get_data(as_text=True)
     assert "http://localhost:9083" not in body
+
+
+def test_unknown_path_shows_the_not_found_page(client):
+    resp = client.get("/does-not-exist")
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 404
+    assert "Page not found" in body
+    assert "Back to ClusterKeep" in body
+    assert f'href="{CLUSTERKEEP_UI_URL}"' in body
+    assert "Sign out" not in body
