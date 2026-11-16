@@ -985,10 +985,6 @@ body:is(.dark)::selection {
   max-width: 100%;
 }
 
-.max-w-lg {
-  max-width: 32rem;
-}
-
 .max-w-md {
   max-width: 28rem;
 }
@@ -1002,6 +998,10 @@ body:is(.dark)::selection {
 }
 
 .flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+.shrink-0 {
   flex-shrink: 0;
 }
 
@@ -1028,6 +1028,10 @@ body:is(.dark)::selection {
 
 .items-center {
   align-items: center;
+}
+
+.justify-end {
+  justify-content: flex-end;
 }
 
 .justify-center {
@@ -1136,6 +1140,11 @@ body:is(.dark)::selection {
 .bg-amber-700 {
   --tw-bg-opacity: 1;
   background-color: rgb(180 83 9 / var(--tw-bg-opacity, 1));
+}
+
+.bg-red-700 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(185 28 28 / var(--tw-bg-opacity, 1));
 }
 
 .bg-stone-100 {
@@ -1318,6 +1327,11 @@ body:is(.dark)::selection {
   color: rgb(180 83 9 / var(--tw-text-opacity, 1));
 }
 
+.text-red-700 {
+  --tw-text-opacity: 1;
+  color: rgb(185 28 28 / var(--tw-text-opacity, 1));
+}
+
 .text-stone-300 {
   --tw-text-opacity: 1;
   color: rgb(214 211 209 / var(--tw-text-opacity, 1));
@@ -1463,6 +1477,11 @@ body:is(.dark)::selection {
 .hover\:bg-amber-800:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(146 64 14 / var(--tw-bg-opacity, 1));
+}
+
+.hover\:bg-red-800:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(153 27 27 / var(--tw-bg-opacity, 1));
 }
 
 .hover\:bg-stone-100:hover {
@@ -1644,6 +1663,11 @@ body:is(.dark)::selection {
     color: rgb(245 158 11 / var(--tw-text-opacity, 1));
   }
 
+  .dark\:text-red-300:not(.light *):not(.light) {
+    --tw-text-opacity: 1;
+    color: rgb(252 165 165 / var(--tw-text-opacity, 1));
+  }
+
   .dark\:text-stone-100:not(.light *):not(.light) {
     --tw-text-opacity: 1;
     color: rgb(245 245 244 / var(--tw-text-opacity, 1));
@@ -1764,6 +1788,11 @@ body:is(.dark)::selection {
   color: rgb(245 158 11 / var(--tw-text-opacity, 1));
 }
 
+.dark\:text-red-300:is(.dark *) {
+  --tw-text-opacity: 1;
+  color: rgb(252 165 165 / var(--tw-text-opacity, 1));
+}
+
 .dark\:text-stone-100:is(.dark *) {
   --tw-text-opacity: 1;
   color: rgb(245 245 244 / var(--tw-text-opacity, 1));
@@ -1881,6 +1910,11 @@ body:is(.dark)::selection {
 .dark\:text-amber-500:is(.dark) {
   --tw-text-opacity: 1;
   color: rgb(245 158 11 / var(--tw-text-opacity, 1));
+}
+
+.dark\:text-red-300:is(.dark) {
+  --tw-text-opacity: 1;
+  color: rgb(252 165 165 / var(--tw-text-opacity, 1));
 }
 
 .dark\:text-stone-100:is(.dark) {
