@@ -160,18 +160,18 @@ def test_every_utility_used_by_a_template_is_in_the_build():
         "run `npm run build:css` and commit the result"
     )
 
-def test_no_session_cookie_redirects_to_clusterkeep_ui(anonymous_client):
+def test_no_session_cookie_redirects_to_sign_in(anonymous_client):
     response = anonymous_client.get("/", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+    assert response.headers["Location"] == f"{CLUSTERKEEP_UI_URL}/login"
 
-def test_invalid_session_redirects_to_clusterkeep_ui(anonymous_client):
+def test_invalid_session_redirects_to_sign_in(anonymous_client):
     anonymous_client.set_cookie("ck_sso", "not-a-real-session")
     with responses_lib.RequestsMock() as rsps:
         rsps.add(responses_lib.GET, f"{AUTH_API_INTERNAL_URL}/session", status=401)
         response = anonymous_client.get("/", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+    assert response.headers["Location"] == f"{CLUSTERKEEP_UI_URL}/login"
 
 def test_auth_api_unreachable_fails_closed(anonymous_client):
     """A network blip must not accidentally let anyone in."""
@@ -184,7 +184,7 @@ def test_auth_api_unreachable_fails_closed(anonymous_client):
         )
         response = anonymous_client.get("/", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["Location"] == CLUSTERKEEP_UI_URL
+    assert response.headers["Location"] == f"{CLUSTERKEEP_UI_URL}/login"
 
 def test_healthz_is_reachable_without_a_session(anonymous_client):
     assert anonymous_client.get("/healthz").status_code == 200
@@ -200,12 +200,9 @@ def test_admin_group_shows_the_admin_link(anonymous_client, monkeypatch):
         body = anonymous_client.get("/").get_data(as_text=True)
     assert "http://localhost:9083" in body
 
-def test_sign_out_link_points_to_auth_apis_logout(client):
+def test_sign_out_link_points_to_clusterkeep_ui_logout(client):
     body = client.get("/").get_data(as_text=True)
-    assert (
-        "https://auth-dev.clusterkeep.dev.net/logout"
-        "?post_logout_redirect_uri=https%3A%2F%2Fdev.clusterkeep.dev.net"
-    ) in body
+    assert 'href="https://dev.clusterkeep.dev.net/logout"' in body
 
 def test_regular_user_does_not_see_the_admin_link(anonymous_client, monkeypatch):
     monkeypatch.setitem(app.config, "ADMIN_UI_URL", "http://localhost:9083")
