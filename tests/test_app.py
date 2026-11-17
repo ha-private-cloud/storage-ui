@@ -297,6 +297,22 @@ def test_file_ranges_and_headers_come_back_for_seeking(storage_client):
     assert response.headers["Content-Security-Policy"] == "sandbox; default-src 'none'"
 
 
+def test_pdfs_can_be_framed_by_this_site_but_other_files_cannot(storage_client):
+    with responses_lib.RequestsMock() as rsps:
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/files/{NODE}/content", body=b"%PDF",
+                 content_type="application/pdf",
+                 headers={"Content-Security-Policy": "frame-ancestors 'self'", "X-Frame-Options": "SAMEORIGIN"})
+        rsps.add(responses_lib.GET, f"{STORAGE_URL}/api/v1/files/{NODE}/thumbnail", body=b"jpeg",
+                 content_type="image/jpeg")
+        pdf = storage_client.get(f"/api/files/{NODE}/content")
+        assert pdf.data == b"%PDF"
+        thumb = storage_client.get(f"/api/files/{NODE}/thumbnail")
+        assert thumb.data == b"jpeg"
+    assert pdf.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert pdf.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
+    assert thumb.headers["X-Frame-Options"] == "DENY"
+
+
 def test_api_without_a_session_gets_json_not_a_redirect(anonymous_client):
     response = anonymous_client.get("/api/usage")
     assert response.status_code == 401

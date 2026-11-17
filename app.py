@@ -53,6 +53,7 @@ RETURNED_HEADERS = (
     "Content-Disposition",
     "Content-Security-Policy",
     "Cache-Control",
+    "X-Frame-Options",
 )
 
 CONTENT_SECURITY_POLICY = "; ".join(
