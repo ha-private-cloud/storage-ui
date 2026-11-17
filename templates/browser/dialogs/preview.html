@@ -1,0 +1,15 @@
+{% from "browser/macros.html" import icon, SECONDARY %}
+{% set title = item.name %}{% include "browser/dialogs/_header.html" %}
+{% set source = "/api/files/" ~ item.id ~ "/content" %}
+<div class="p-4 flex flex-col items-center gap-4" data-dialog-wide>
+  {% if kind == "image" %}
+  <img src="{{ source }}" alt="{{ item.name }}" class="max-h-[75vh] max-w-full object-contain" />
+  {% elif kind == "video" %}
+  <video src="{{ source }}" controls autoplay class="max-h-[75vh] max-w-full"></video>
+  {% elif kind == "audio" %}
+  <audio src="{{ source }}" controls autoplay class="w-full"></audio>
+  {% else %}
+  <iframe src="{{ source }}" title="{{ item.name }}" class="w-full h-[75vh] rounded-lg border border-stone-200 dark:border-stone-800 bg-white"></iframe>
+  {% endif %}
+  <a href="{{ source }}?download=1" download="{{ item.name }}" class="{{ SECONDARY }}">{{ icon("download", "w-4 h-4") }}Download</a>
+</div>

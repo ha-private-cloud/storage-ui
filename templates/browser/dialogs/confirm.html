@@ -1,0 +1,5 @@
+{% include "browser/dialogs/_header.html" %}
+<form class="flex flex-col gap-4 p-4" hx-post="{{ action }}" hx-target="#dialog-error" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
+  <p class="text-stone-600 dark:text-stone-300">{{ message }}</p>
+  {% include "browser/dialogs/_actions.html" %}
+</form>

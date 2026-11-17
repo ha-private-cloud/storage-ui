@@ -1,0 +1,9 @@
+{% from "browser/macros.html" import FIELD %}
+{% include "browser/dialogs/_header.html" %}
+<form class="flex flex-col gap-4 p-4" hx-post="{{ action }}" hx-target="#dialog-error" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
+  {% if parent_id %}<input type="hidden" name="parent_id" value="{{ parent_id }}" />{% endif %}
+  <label class="flex flex-col gap-2 text-sm font-medium">{{ label }}
+    <input type="text" name="name" value="{{ value }}" required maxlength="255" autocomplete="off" autofocus class="{{ FIELD }}" {% if select_stem %}data-select-stem{% endif %} />
+  </label>
+  {% with focus_field=True %}{% include "browser/dialogs/_actions.html" %}{% endwith %}
+</form>

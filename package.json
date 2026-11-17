@@ -23,6 +23,7 @@
   "homepage": "https://github.com/ha-private-cloud/storage-ui#readme",
   "devDependencies": {
     "autoprefixer": "^10.5.4",
+    "htmx.org": "2.0.4",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.19"
   }
