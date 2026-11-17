@@ -112,6 +112,29 @@
     return "file";
   }
 
+  function isPdf(item) {
+    return item.mime_type === "application/pdf";
+  }
+
+  function typeLabel(item) {
+    const dot = item.name.lastIndexOf(".");
+    if (dot > 0 && dot < item.name.length - 1) return item.name.slice(dot + 1).toUpperCase();
+    const kind = kindOf(item);
+    return kind === "file" ? "File" : kind.charAt(0).toUpperCase() + kind.slice(1);
+  }
+
+  function formatDate(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function locationLink(location) {
+    const target = location.length ? `#folder/${location[location.length - 1].id}` : "#all";
+    const path = ["My storage", ...location.map((crumb) => crumb.name)].join(" / ");
+    return el("a", { href: target, class: "text-stone-500 dark:text-stone-400 text-xs truncate hover:text-amber-700", title: `In ${path}`, text: `In ${path}` });
+  }
+
   function formatBytes(bytes) {
     const units = ["B", "KB", "MB", "GB", "TB"];
     let value = bytes;
@@ -190,8 +213,17 @@
     try {
       const usage = await api("usage");
       const percent = usage.quota ? Math.min(100, (usage.used / usage.quota) * 100) : 0;
+      const full = percent >= 100;
+      const nearlyFull = percent >= 90;
       usageBar.style.width = `${percent}%`;
-      usageText.textContent = `${formatBytes(usage.used)} of ${formatBytes(usage.quota)} used`;
+      usageBar.classList.toggle("bg-amber-600", !nearlyFull);
+      usageBar.classList.toggle("bg-red-600", nearlyFull);
+      usageText.classList.toggle("text-red-700", nearlyFull);
+      usageText.classList.toggle("dark:text-red-400", nearlyFull);
+      let note = "";
+      if (full) note = " Your storage is full.";
+      else if (nearlyFull) note = " You're nearly out of space.";
+      usageText.textContent = `${formatBytes(usage.used)} of ${formatBytes(usage.quota)} used.${note}`;
     } catch (err) {
       usageText.textContent = "";
     }
@@ -401,11 +433,14 @@
     }
     if (!opts.trash && kind === "folder") moveDropTarget(tile, item.id);
 
-    const detail = kind === "folder" ? "Folder" : formatBytes(item.size);
+    const modified = formatDate(item.modified_at);
+    const detail = (kind === "folder" ? ["Folder", modified] : [formatBytes(item.size), typeLabel(item), modified])
+      .filter(Boolean).join(" · ");
     return el("div", { class: "flex flex-col gap-1 min-w-0" },
       tile,
       el("p", { class: "text-stone-700 dark:text-stone-200 text-xs font-medium truncate", title: item.name, text: item.name }),
-      el("p", { class: "text-stone-500 dark:text-stone-400 text-xs", text: detail }),
+      el("p", { class: "text-stone-500 dark:text-stone-400 text-xs truncate", title: detail, text: detail }),
+      item.location && !opts.trash ? locationLink(item.location) : null,
     );
   }
 
@@ -427,8 +462,12 @@
       currentFolderId = data.folder.id;
       currentSection = data.folder.section;
       const crumbs = state.view === "section" ? null : data.folder.path;
+      const label = SECTIONS[state.section];
       main.replaceChildren(
         header(data.folder.name, crumbs, { canAdd: true, back: crumbs && crumbs.length ? crumbs : null }),
+        state.view === "section"
+          ? el("p", { class: "text-sm text-stone-500 dark:text-stone-400 mb-6", text: `All your ${label.toLowerCase()}, from every folder. Uploads here go into the ${label} folder.` })
+          : null,
         data.items.length ? grid(data.items) : emptyState("Nothing here yet. Upload files or drop them on this page."),
       );
     } catch (err) {
@@ -627,6 +666,7 @@
     if (kind === "image") content = el("img", { src: source, alt: item.name, class: "max-h-[75vh] max-w-full object-contain" });
     else if (kind === "video") content = el("video", { src: source, controls: true, autoplay: true, class: "max-h-[75vh] max-w-full" });
     else if (kind === "audio") content = el("audio", { src: source, controls: true, autoplay: true, class: "w-full" });
+    else if (isPdf(item)) content = el("iframe", { src: source, title: item.name, class: "w-full h-[75vh] rounded-lg border border-stone-200 dark:border-stone-800 bg-white" });
     else {
       download(item);
       return;
