@@ -1,0 +1,90 @@
+{% from "browser/macros.html" import icon, card, SECONDARY, PRIMARY %}
+{% set NAV = "nav-link flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors" %}
+{% set ACTIVE = "bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-50" %}
+{% set INACTIVE = "text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900 hover:text-stone-900 dark:hover:text-stone-50" %}
+<div id="app" class="flex flex-col lg:flex-row gap-8 w-full h-full min-h-[calc(100vh-16rem)]"
+     hx-boost="true" hx-target="#app" hx-swap="outerHTML"
+     data-upload-parent="{{ view.folder_id or '' }}" data-accepts-uploads="{{ 'true' if view.can_add and view.state == 'ok' else 'false' }}">
+  <div hidden hx-get="{{ self_url }}" hx-trigger="files-changed from:body" hx-target="#app" hx-swap="outerHTML" hx-push-url="false"></div>
+
+  <aside class="w-full lg:w-64 flex-shrink-0">
+    <nav class="flex flex-col gap-1" aria-label="Storage">
+      <a href="/" class="{{ NAV }} {{ ACTIVE if nav == 'all' else INACTIVE }}" data-drop-parent="" {% if nav == 'all' %}aria-current="page"{% endif %}>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+        All Files
+      </a>
+      {% for key, label in sections.items() %}
+      <a href="/section/{{ key }}" class="{{ NAV }} {{ ACTIVE if nav == key else INACTIVE }}" data-drop-section="{{ key }}" {% if nav == key %}aria-current="page"{% endif %}>
+        {{ icon({"photos": "image", "videos": "video", "music": "audio", "documents": "file"}[key]) }}
+        {{ label }}
+      </a>
+      {% endfor %}
+      <a href="/bin" class="{{ NAV }} {{ ACTIVE if nav == 'trash' else INACTIVE }}" data-drop-bin {% if nav == 'trash' %}aria-current="page"{% endif %}>
+        {{ icon("bin") }}
+        Bin
+      </a>
+    </nav>
+
+    {% if usage %}
+    <div class="mt-8 px-4">
+      <progress class="usage-bar mb-2 {{ 'usage-bar-warn' if usage.level != 'ok' else '' }}" value="{{ usage.percent }}" max="100" aria-label="Storage used">{{ usage.percent }}%</progress>
+      <p class="text-xs {{ 'text-red-700 dark:text-red-400' if usage.level != 'ok' else 'text-stone-500 dark:text-stone-400' }}">
+        {{ usage.used|filesize }} of {{ usage.quota|filesize }} used.{% if usage.level == 'full' %} Your storage is full.{% elif usage.level == 'high' %} You're nearly out of space.{% endif %}
+      </p>
+    </div>
+    {% endif %}
+  </aside>
+
+  <section class="flex-1 min-w-0" id="browser" aria-live="polite">
+    {% if view.state == "locked" %}
+    <div class="max-w-md mx-auto text-center py-16">
+      <h2 class="font-display text-2xl font-semibold text-stone-900 dark:text-stone-50 mb-4">Your storage is locked</h2>
+      <p class="text-stone-600 dark:text-stone-300 mb-8">Log in again to unlock your files.</p>
+      <a class="{{ PRIMARY }}" href="{{ login_url }}?next={{ next_url|urlencode }}" hx-boost="false">Log in</a>
+    </div>
+    {% else %}
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+      <div class="min-w-0">
+        {% if view.crumbs %}
+        <nav class="flex flex-wrap items-center gap-1 text-sm text-stone-500 dark:text-stone-400 mb-1" aria-label="Folder path">
+          <a href="/" class="rounded hover:text-amber-700" data-drop-parent="">My storage</a>
+          {% for crumb in view.crumbs[:-1] %} / <a href="/folder/{{ crumb.id }}" class="rounded hover:text-amber-700" data-drop-parent="{{ crumb.id }}">{{ crumb.name }}</a>{% endfor %}
+        </nav>
+        {% endif %}
+        <div class="flex items-center gap-3 min-w-0">
+          {% if view.back %}
+          <a href="{{ view.back }}" class="shrink-0 p-2 rounded-lg text-stone-600 dark:text-stone-300 bg-stone-100 hover:bg-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
+             aria-label="Back" title="Back" data-drop-parent="{{ view.back_id }}">{{ icon("back") }}</a>
+          {% endif %}
+          <h2 class="text-2xl font-display font-semibold text-stone-900 dark:text-stone-50 truncate">{{ view.title }}</h2>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <form class="w-full sm:w-auto" role="search" action="/search" method="get">
+          <input type="search" name="q" value="{{ view.query }}" placeholder="Search files" aria-label="Search files" required maxlength="255"
+                 class="w-full sm:w-56 px-3 py-2 text-sm rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700" />
+        </form>
+        {% if view.can_add and view.state == "ok" %}
+        <button type="button" class="{{ SECONDARY }}" hx-get="/dialogs/new-folder" hx-vals='{{ {"parent_id": view.folder_id or ""}|tojson }}' hx-target="#dialog-content" hx-swap="innerHTML">{{ icon("newFolder", "w-4 h-4") }}New folder</button>
+        <button type="button" class="{{ PRIMARY }}" hx-get="/dialogs/upload" hx-vals='{{ {"parent_id": view.folder_id or "", "section": view.section or ""}|tojson }}' hx-target="#dialog-content" hx-swap="innerHTML">{{ icon("upload", "w-4 h-4") }}Upload</button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if view.state == "missing" %}
+    <p class="text-stone-500 dark:text-stone-400 mt-8">That folder doesn't exist or is in the bin.</p>
+    {% elif view.state == "unavailable" %}
+    <p class="text-stone-500 dark:text-stone-400 mt-8">{{ view.message }}</p>
+    {% else %}
+    {% if view.note %}<p class="text-sm text-stone-500 dark:text-stone-400 mb-6">{{ view.note }}</p>{% endif %}
+    {% if view["items"] %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+      {% for item in view["items"] %}{{ card(item, trash=view.trash) }}{% endfor %}
+    </div>
+    {% else %}
+    <p class="text-stone-500 dark:text-stone-400 mt-8">{{ view.empty }}</p>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+  </section>
+</div>

@@ -83,3 +83,27 @@
 #viewer::backdrop {
   background: rgb(0 0 0 / 0.7);
 }
+
+.usage-bar {
+  @apply block w-full h-2 rounded-full overflow-hidden appearance-none border-0 bg-stone-200 dark:bg-stone-800;
+}
+
+.usage-bar::-webkit-progress-bar {
+  background-color: transparent;
+}
+
+.usage-bar::-webkit-progress-value {
+  @apply bg-amber-600 rounded-full;
+}
+
+.usage-bar::-moz-progress-bar {
+  @apply bg-amber-600 rounded-full;
+}
+
+.usage-bar-warn::-webkit-progress-value {
+  @apply bg-red-600;
+}
+
+.usage-bar-warn::-moz-progress-bar {
+  @apply bg-red-600;
+}
