@@ -1,0 +1,6 @@
+{% from "browser/macros.html" import PRIMARY, SECONDARY, DANGER %}
+<div id="dialog-error" class="text-sm text-red-700 dark:text-red-300" role="alert"></div>
+<div class="flex justify-end gap-3">
+  <button type="button" class="{{ SECONDARY }}" data-close-dialog>Cancel</button>
+  <button type="submit" class="{{ DANGER if danger else PRIMARY }}" {% if not focus_field %}autofocus{% endif %}>{{ submit }}</button>
+</div>

@@ -1,0 +1,13 @@
+{% from "browser/macros.html" import FIELD %}
+{% set title = "Move “" ~ item.name ~ "”" %}{% include "browser/dialogs/_header.html" %}
+<form class="flex flex-col gap-4 p-4" hx-post="/nodes/{{ item.id }}/move" hx-target="#dialog-error" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
+  <label class="flex flex-col gap-2 text-sm font-medium">Destination folder
+    <select name="parent_id" class="{{ FIELD }}" autofocus>
+      <option value="" {% if not item.parent_id %}selected{% endif %}>My storage</option>
+      {% for folder in choices %}
+      <option value="{{ folder.id }}" {% if folder.id == item.parent_id %}selected{% endif %}>{{ folder.path }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% with submit="Move here", focus_field=True %}{% include "browser/dialogs/_actions.html" %}{% endwith %}
+</form>

@@ -1,0 +1,90 @@
+{% set ICONS = {
+  "folder": "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z",
+  "image": "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
+  "video": "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z",
+  "audio": "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+  "pdf": "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+  "file": "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+  "upload": "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12",
+  "newFolder": "M9 13h6m-3-3v6M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z",
+  "download": "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
+  "rename": "M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.5H9V13z",
+  "move": "M13 7l5 5m0 0l-5 5m5-5H6",
+  "back": "M10 19l-7-7m0 0l7-7m-7 7h18",
+  "bin": "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+  "restore": "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+} %}
+
+{% set BUTTON = "inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700" %}
+{% set SECONDARY = BUTTON ~ " text-stone-700 dark:text-stone-200 bg-stone-100 hover:bg-stone-200 dark:bg-stone-900 dark:hover:bg-stone-800 border border-stone-300 dark:border-stone-700" %}
+{% set PRIMARY = BUTTON ~ " text-white bg-amber-700 hover:bg-amber-800 shadow-sm" %}
+{% set DANGER = BUTTON ~ " text-white bg-red-700 hover:bg-red-800 shadow-sm" %}
+{% set FIELD = "w-full px-3 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700" %}
+{% set ICON_BUTTON = "p-1.5 rounded-md bg-white/90 dark:bg-stone-900/90 text-stone-700 dark:text-stone-200 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700" %}
+
+{% macro icon(name, classes="w-5 h-5") -%}
+<svg class="{{ classes }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ ICONS[name] }}"></path></svg>
+{%- endmacro %}
+
+{% macro item_vals(item) -%}
+{{ {"name": item.name, "kind": item.kind, "mime": item.mime_type or "", "parent_id": item.parent_id or ""}|tojson }}
+{%- endmacro %}
+
+{% macro dialog_button(name, label, url, item) -%}
+<button type="button" class="{{ ICON_BUTTON }}" aria-label="{{ label }}" title="{{ label }}"
+        hx-get="{{ url }}" hx-vals='{{ item_vals(item) }}' hx-target="#dialog-content" hx-swap="innerHTML">{{ icon(name, "w-4 h-4") }}</button>
+{%- endmacro %}
+
+{% macro location_link(location) -%}
+{% set path = (["My storage"] + location|map(attribute="name")|list)|join(" / ") %}
+<a href="{{ '/folder/' ~ location[-1].id if location else '/' }}" class="text-stone-500 dark:text-stone-400 text-xs truncate hover:text-amber-700" title="In {{ path }}">In {{ path }}</a>
+{%- endmacro %}
+
+{% macro card(item, trash=False) %}
+{% set kind = item|kind %}
+{% set fixed = trash or item.section %}
+{% set inner = "absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-700" %}
+<div class="flex flex-col gap-1 min-w-0">
+  <div class="group relative aspect-square bg-stone-100 dark:bg-stone-900 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-800 hover:border-amber-500 dark:hover:border-amber-600 transition-all"
+       {% if not fixed %}draggable="true" data-node-id="{{ item.id }}"{% endif %}
+       {% if kind == "folder" and not trash %}data-drop-parent="{{ item.id }}"{% endif %}>
+    {% set preview %}
+      {% if item.has_thumbnail %}
+      <img src="/api/files/{{ item.id }}/thumbnail" alt="" loading="lazy" draggable="false" class="absolute inset-0 w-full h-full object-cover" />
+      {% else %}
+      <span class="absolute inset-0 flex items-center justify-center">{{ icon(kind, "w-14 h-14 text-amber-500" if kind == "folder" else "w-12 h-12 text-stone-300 dark:text-stone-700") }}</span>
+      {% endif %}
+    {% endset %}
+    {% if trash %}
+    <div class="absolute inset-0" role="img" aria-label="{{ item.name }}">{{ preview }}</div>
+    {% elif kind == "folder" %}
+    <a href="/folder/{{ item.id }}" class="{{ inner }} cursor-pointer" aria-label="{{ item.name }}" draggable="false">{{ preview }}</a>
+    {% elif kind in ("image", "video", "audio", "pdf") %}
+    <button type="button" class="{{ inner }} cursor-pointer" aria-label="{{ item.name }}"
+            hx-get="/dialogs/preview/{{ item.id }}" hx-vals='{{ item_vals(item) }}' hx-target="#dialog-content" hx-swap="innerHTML">{{ preview }}</button>
+    {% else %}
+    <a href="/api/files/{{ item.id }}/content?download=1" download="{{ item.name }}" hx-boost="false" class="{{ inner }} cursor-pointer" aria-label="Download {{ item.name }}" draggable="false">{{ preview }}</a>
+    {% endif %}
+    {% if trash %}
+    <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+      <button type="button" class="{{ ICON_BUTTON }}" aria-label="Restore" title="Restore" hx-post="/bin/{{ item.id }}/restore" hx-swap="none">{{ icon("restore", "w-4 h-4") }}</button>
+      {{ dialog_button("bin", "Delete forever", "/dialogs/delete/" ~ item.id, item) }}
+    </div>
+    {% elif not item.section %}
+    <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+      {% if kind != "folder" %}
+      <a href="/api/files/{{ item.id }}/content?download=1" download="{{ item.name }}" hx-boost="false" class="{{ ICON_BUTTON }}" aria-label="Download" title="Download" draggable="false">{{ icon("download", "w-4 h-4") }}</a>
+      {% endif %}
+      {{ dialog_button("rename", "Rename", "/dialogs/rename/" ~ item.id, item) }}
+      {{ dialog_button("move", "Move", "/dialogs/move/" ~ item.id, item) }}
+      {{ dialog_button("bin", "Move to bin", "/dialogs/bin/" ~ item.id, item) }}
+    </div>
+    {% endif %}
+  </div>
+  <p class="text-stone-700 dark:text-stone-200 text-xs font-medium truncate" title="{{ item.name }}">{{ item.name }}</p>
+  {% set modified = item.modified_at|shortdate %}
+  {% set detail = (["Folder", modified] if kind == "folder" else [item.size|filesize, item|typelabel, modified])|select|join(" · ") %}
+  <p class="text-stone-500 dark:text-stone-400 text-xs truncate" title="{{ detail }}">{{ detail }}</p>
+  {% if item.location is defined and not trash %}{{ location_link(item.location) }}{% endif %}
+</div>
+{% endmacro %}

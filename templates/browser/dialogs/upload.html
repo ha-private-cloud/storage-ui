@@ -1,0 +1,11 @@
+{% from "browser/macros.html" import icon, SECONDARY %}
+{% set title = "Upload files" %}{% include "browser/dialogs/_header.html" %}
+<div class="p-4">
+  <div data-upload-zone class="w-full flex flex-col items-center justify-center gap-4 px-6 py-12 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 transition-colors">
+    {{ icon("upload", "w-10 h-10 text-stone-400") }}
+    <p class="text-sm">Drop files here</p>
+    <label class="{{ SECONDARY }} cursor-pointer">Choose files
+      <input type="file" multiple class="sr-only" data-upload-input data-parent-id="{{ parent_id }}" {% if accept %}accept="{{ accept }}"{% endif %} />
+    </label>
+  </div>
+</div>
